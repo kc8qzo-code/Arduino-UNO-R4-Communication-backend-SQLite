@@ -1,0 +1,13 @@
+spring:
+  profiles:
+    active: LOCAL
+java:
+  version: 17
+  heap:
+    initial: 256m
+    max: 256m
+artifact:
+  name: arduino-communication.jar
+uri:
+  root: api/arduino-communication
+#gateway: api-internal-gateway

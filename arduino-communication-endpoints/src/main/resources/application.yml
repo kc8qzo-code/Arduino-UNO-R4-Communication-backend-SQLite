@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    url: jdbc:sqlite:C:/dev/ArduinoCommunicationSQLite/arduino-communication-endpoints/ArduinoTestDB.db
+    driver-class-name: org.sqlite.JDBC
+  jpa:
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+        

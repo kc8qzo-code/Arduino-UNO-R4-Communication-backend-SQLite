@@ -1,0 +1,4 @@
+name: LocalEnvironment
+variables:
+  - name: environmentUrl
+    value: http://localhost:8080
