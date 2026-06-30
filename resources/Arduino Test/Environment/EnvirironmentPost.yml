@@ -1,0 +1,18 @@
+info:
+  name: EnvirironmentPost
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{environmentUrl}}/api/sensors"
+  body:
+    type: json
+    data: '{"temperature": 100.13, "humidity": 101.12}'
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

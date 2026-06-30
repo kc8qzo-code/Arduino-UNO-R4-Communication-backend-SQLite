@@ -1,0 +1,7 @@
+spring:
+  config:
+    name: arduino-communication-endpoints
+  application:
+    name: ${spring.config.name}
+  profiles:
+    active: LOCAL
