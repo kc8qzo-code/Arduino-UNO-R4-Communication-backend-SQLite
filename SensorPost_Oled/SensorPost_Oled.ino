@@ -83,8 +83,9 @@ WiFiClient  wifiClient;
 HttpClient  http(wifiClient, SERVER_HOST, SERVER_PORT);
 
 unsigned long lastPostTime  = 0;
-unsigned long postCount     = 0;
+unsigned long successPostCount     = 0;
 unsigned long errorCount    = 0;
+unsigned long postCount    = 0;
 
 int lightOhms = 0;
 
@@ -122,7 +123,7 @@ void loop() {
   }
 
   unsigned long currentMillis = millis();
-
+ 
   if (currentMillis - lastPostTime >= POST_INTERVAL_MS) {
     lastPostTime = currentMillis;
     buildSensorData();
@@ -139,6 +140,9 @@ void loop() {
 //  Read DHT22 and POST JSON to REST endpoint
 // ═══════════════════════════════════════════════════════════════════════════════
 void buildSensorData() {
+
+  postCount++;
+
   // ── 1. Read DHT11 ──────────────────────────────────────────────────────────
   float humidity    = dht.readHumidity();
   float temperature = dht.readTemperature(true);
@@ -160,6 +164,8 @@ void buildSensorData() {
 
   String body;
   serializeJson(doc, body);
+
+  executeHttpRequest(doc, body);
 
   // ── 3. HTTP POST ───────────────────────────────────────────────────────────
   Serial.println(F("\n────────────────────────────"));
@@ -193,7 +199,7 @@ void executeHttpRequest(ArduinoJson::JsonDocument doc, arduino::String body){
 
   if (statusCode >= 200 && statusCode < 300) {
     Serial.println(F("[HTTP] ✔ Saved to database"));
-    postCount++;
+    successPostCount++;
   } else {
     Serial.println(F("[HTTP] ✘ Server error – check backend logs"));
     errorCount++;
@@ -265,7 +271,7 @@ float round2(float val) {
 
 void printStats() {
   Serial.print(F("[STATS] Posts OK: "));
-  Serial.print(postCount);
+  Serial.print(successPostCount);
   Serial.print(F("  Errors: "));
   Serial.println(errorCount);
 }

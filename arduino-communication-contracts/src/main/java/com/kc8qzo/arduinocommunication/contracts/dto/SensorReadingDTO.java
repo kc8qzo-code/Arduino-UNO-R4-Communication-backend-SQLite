@@ -30,9 +30,8 @@ public class SensorReadingDTO {
         this.light = light;
     }
 
-    @ApiModelProperty(value = "postedAt", example = "2026-07-03T16:42:15Z")
-    private Instant postedAt;
-
     @ApiModelProperty(value = "passValue", example = "123456")
     private long passValue;
+
+    private Instant postedAt;
 }
