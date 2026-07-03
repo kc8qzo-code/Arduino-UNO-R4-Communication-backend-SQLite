@@ -39,6 +39,9 @@ public class SensorReading {
         this.light = light;
     }
 
+    @Column
+    private long passValue;
+
     @Column(nullable = false)
     private Instant postedAt;
 }

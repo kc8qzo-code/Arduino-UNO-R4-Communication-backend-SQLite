@@ -21,6 +21,8 @@ public class SensorController {
         System.out.println("Temp = " + reading.getTemperature());
         System.out.println("Humidity = " + reading.getHumidity());
         System.out.println("Light = " + reading.getLight());
+        System.out.println("Pass Value = " + reading.getPassValue());
+        System.out.println("TimeStamp = " + reading.getPostedAt());
         return "OK";
     }
 
@@ -40,5 +42,4 @@ public class SensorController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.noContent().build());
     }
-
 }

@@ -4,7 +4,7 @@ spring:
     deserialization:
       adjust-dates-to-context-time-zone: false
   datasource:
-    url: jdbc:sqlite:C:/dev/ArduinoCommunicationSQLite/arduino-communication-endpoints/ArduinoTestDB.db
+    url: jdbc:sqlite:C:/dev/Arduino-UNO-R4-Communication-backend-SQLite/arduino-communication-endpoints/ArduinoTestDB.db
     driver-class-name: org.sqlite.JDBC
   jpa:
     database-platform: org.hibernate.community.dialect.SQLiteDialect

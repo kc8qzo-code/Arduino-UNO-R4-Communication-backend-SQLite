@@ -21,10 +21,12 @@ public class SensorService {
     private final Clock clock;
 
     public void receiveSensorData(SensorReadingDTO dto) {
-        SensorReading entity = mapper.map(dto, SensorReading.class);
-        if (entity.getPostedAt() == null) {
-            entity.setPostedAt(Instant.now(clock));
+        if (dto.getPostedAt() == null) {
+            dto.setPostedAt(Instant.now(clock));
         }
+
+        SensorReading entity = mapper.map(dto, SensorReading.class);
+
         arduinoSensorRepository.save(entity);
     }
 

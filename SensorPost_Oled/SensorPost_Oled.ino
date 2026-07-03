@@ -12,7 +12,7 @@
 
   PhotoCell Pin A0
 
-  OLED 128x48
+  OLED 128x64
   Pin GND → Arduino GND
   Pin VCC → Arduino 5V or 3.3
   Pin VSCL → Arduino A5 (or SCL pin)
@@ -24,6 +24,9 @@
   • Adafruit_SSD1306 
   • Adafruit_GFX
   • Arduino_BuiltIn 
+  • ArduinoGraphics
+  • Arduino_LED_Matrix
+  • Wire
   • ArduinoJson        by Benoit Blanchon (7.x)
   • WiFiS3             – bundled with "Arduino UNO R4 Boards" board package
 
@@ -38,11 +41,10 @@
 #include <WiFiS3.h>
 #include <ArduinoJson.h>
 #include <DHT.h>
-#include "arduino_secrets.h"
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <Fonts/FreeMono9pt7b.h>
+#include "arduino_secrets.h"
 
 // ── Wi-Fi credentials ─────────────────────────────────────────────────────────
 char WIFI_SSID[] = SECRET_SSID;
@@ -123,7 +125,7 @@ void loop() {
 
   if (currentMillis - lastPostTime >= POST_INTERVAL_MS) {
     lastPostTime = currentMillis;
-    postSensorData();
+    buildSensorData();
     printStats();
   }
 
@@ -136,7 +138,7 @@ void loop() {
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Read DHT22 and POST JSON to REST endpoint
 // ═══════════════════════════════════════════════════════════════════════════════
-void postSensorData() {
+void buildSensorData() {
   // ── 1. Read DHT11 ──────────────────────────────────────────────────────────
   float humidity    = dht.readHumidity();
   float temperature = dht.readTemperature(true);
@@ -154,6 +156,7 @@ void postSensorData() {
   doc["temperature"] = round2(temperature);
   doc["humidity"]    = round2(humidity);
   doc["light"]  = lightOhms;
+  doc["passValue"] = postCount;
 
   String body;
   serializeJson(doc, body);
@@ -163,6 +166,10 @@ void postSensorData() {
   Serial.print(F("[POST] → "));
   Serial.println(body);
 
+  updateOled(temperature, humidity, lightOhms);
+}
+
+void executeHttpRequest(ArduinoJson::JsonDocument doc, arduino::String body){
   http.beginRequest();
   http.post(API_PATH);
   http.sendHeader("Content-Type", "application/json");
@@ -191,12 +198,9 @@ void postSensorData() {
     Serial.println(F("[HTTP] ✘ Server error – check backend logs"));
     errorCount++;
   }
-
-  updateOled(temperature, humidity, lightOhms);
 }
 
-
-// Updates LiquidCrystal_I2C Display
+// Updates OLED 128x64
 void updateOled(float temp, float humidity, int light) {
   // Clear the buffer
   display.clearDisplay();
