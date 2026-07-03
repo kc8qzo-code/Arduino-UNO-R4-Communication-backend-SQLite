@@ -8,6 +8,8 @@ import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,9 +18,15 @@ import java.util.Optional;
 public class SensorService {
     private final ModelMapper mapper;
     private final ArduinoSensorRepository arduinoSensorRepository;
+    private final Clock clock;
 
     public void receiveSensorData(SensorReadingDTO dto) {
+        if (dto.getPostedAt() == null) {
+            dto.setPostedAt(Instant.now(clock));
+        }
+
         SensorReading entity = mapper.map(dto, SensorReading.class);
+
         arduinoSensorRepository.save(entity);
     }
 
