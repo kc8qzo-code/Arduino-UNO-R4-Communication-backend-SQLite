@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+import java.time.Instant;
+
 @Getter
 @Setter
 @EqualsAndHashCode
@@ -27,4 +29,6 @@ public class SensorReadingDTO {
     public void setMyInteger(Integer light) {
         this.light = light;
     }
+
+    private Instant postedAt;
 }

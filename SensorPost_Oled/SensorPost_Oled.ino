@@ -34,14 +34,15 @@
 #include <Arduino_BuiltIn.h>
 #include <ArduinoGraphics.h>
 #include <Arduino_LED_Matrix.h>
-#include <WiFiS3.h>
 #include <ArduinoHttpClient.h>
+#include <WiFiS3.h>
 #include <ArduinoJson.h>
 #include <DHT.h>
 #include "arduino_secrets.h"
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <Fonts/FreeMono9pt7b.h>
 
 // ── Wi-Fi credentials ─────────────────────────────────────────────────────────
 char WIFI_SSID[] = SECRET_SSID;
@@ -72,6 +73,7 @@ ArduinoLEDMatrix matrix;
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 #define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
 #define SCREEN_ADDRESS 0x3C // See datasheet for Address; 0x3C for most 128x48/128x64 displays
+
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // ── Globals ───────────────────────────────────────────────────────────────────
@@ -167,6 +169,7 @@ void postSensorData() {
   http.sendHeader("Content-Length", String(body.length()));
   http.sendHeader("X-Device-Id", DEVICE_ID);
   http.sendHeader("Connection", "close");
+
   http.beginBody();
   http.print(body);
   http.endRequest();
@@ -177,6 +180,7 @@ void postSensorData() {
 
   Serial.print(F("[HTTP] Status : "));
   Serial.println(statusCode);
+
   Serial.print(F("[HTTP] Body   : "));
   Serial.println(response);
 
@@ -197,10 +201,11 @@ void updateOled(float temp, float humidity, int light) {
   // Clear the buffer
   display.clearDisplay();
 
-  display.setCursor(0,16);     // Start at top-left corner
+  display.setCursor(0,28);     // Start at top-left corner
   display.println("Temp: " + String(temp) + " F");
   display.println("Humidity: " + String(humidity) + "%");
   display.println("Light: " + String(light) + " Ohms");
+  display.println("Pass: " + String(postCount));
 
   display.display(); // Actually push the text to the screen
 }

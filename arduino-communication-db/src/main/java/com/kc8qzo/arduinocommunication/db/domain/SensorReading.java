@@ -10,6 +10,8 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.Instant;
+
 @Entity
 @Getter
 @Setter
@@ -36,4 +38,7 @@ public class SensorReading {
     public void setMyInteger(Integer light) {
         this.light = light;
     }
+
+    @Column(nullable = false)
+    private Instant postedAt;
 }
