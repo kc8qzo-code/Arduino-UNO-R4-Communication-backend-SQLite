@@ -28,6 +28,7 @@ public class SensorController {
 
     @ApiOperation(value = "Retrieves SensorReadings", response = SensorReadingDTO.class, httpMethod = "GET")
     @ResponseBody
+    @CrossOrigin
     @GetMapping("/readings")
     public List<SensorReadingDTO> retrieveSensorReadings() {
 
@@ -36,6 +37,7 @@ public class SensorController {
 
     @ApiOperation(value = "Retrieves Latest SensorReading", response = SensorReadingDTO.class, httpMethod = "GET")
     @ResponseBody
+    @CrossOrigin
     @GetMapping("/latest")
     public ResponseEntity<SensorReadingDTO> retrieveLatestSensorReading() {
         return sensorService.getLatestSensorReading()
