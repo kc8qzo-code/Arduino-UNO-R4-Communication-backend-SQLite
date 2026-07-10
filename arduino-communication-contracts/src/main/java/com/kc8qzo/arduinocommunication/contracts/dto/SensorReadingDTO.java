@@ -13,6 +13,9 @@ import java.time.Instant;
 @EqualsAndHashCode
 @ToString
 public class SensorReadingDTO {
+    @ApiModelProperty(value = "id", example = "1")
+    private Long id;
+
     @ApiModelProperty(value = "temperature", example = "5.55")
     private double temperature;
 

@@ -44,4 +44,15 @@ public class SensorController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.noContent().build());
     }
+
+    @ApiOperation(value = "Updates SensorReading", response = SensorReadingDTO.class, httpMethod = "PUT")
+    @ResponseBody
+    @CrossOrigin
+    @PutMapping("/readings/{id}")
+    public ResponseEntity<SensorReadingDTO> updateSensorReading(@PathVariable Long id,
+                                                                @RequestBody SensorReadingDTO reading) {
+        return sensorService.updateSensorReading(id, reading)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
 }
