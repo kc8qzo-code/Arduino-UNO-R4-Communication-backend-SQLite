@@ -41,11 +41,15 @@ public class SensorService {
     }
 
     public Optional<SensorReadingDTO> updateSensorReading(Long id, SensorReadingDTO dto) {
-        SensorReading dbSensorReading;
+        SensorReading dbSensorReading = arduinoSensorRepository.findById(id).orElse(null);
         dto.setId(id);
-        dbSensorReading = mapper.map(dto, SensorReading.class);
+        if (dbSensorReading != null) {
+            dto.setPostedAt(dbSensorReading.getPostedAt());
+        }
 
-        return Optional.ofNullable(mapToSensorReadingDTO(arduinoSensorRepository.save(dbSensorReading)));
+        SensorReading updateSensorReading = mapper.map(dto, SensorReading.class);
+
+        return Optional.ofNullable(mapToSensorReadingDTO(arduinoSensorRepository.save(updateSensorReading)));
     }
 
     private SensorReadingDTO mapToSensorReadingDTO(SensorReading sensorReading) {
