@@ -22,14 +22,6 @@ public class SensorReadingDTO {
     @ApiModelProperty(value = "light", example = "5")
     private Integer light;
 
-    public Integer getMyInteger() {
-        return light;
-    }
-
-    public void setMyInteger(Integer light) {
-        this.light = light;
-    }
-
     @ApiModelProperty(value = "passValue", example = "123456")
     private long passValue;
 

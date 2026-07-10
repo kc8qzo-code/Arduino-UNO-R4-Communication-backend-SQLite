@@ -1,0 +1,33 @@
+{
+  "info": {
+    "type": "bruno-environment",
+    "exportedAt": "2026-07-09T15:45:08.408Z",
+    "exportedUsing": "Bruno/v3.5.1"
+  },
+  "environments": [
+    {
+      "name": "LocalEnvironment",
+      "variables": [
+        {
+          "name": "environmentUrl",
+          "value": "http://localhost:8080",
+          "type": "text",
+          "enabled": true,
+          "secret": false
+        }
+      ]
+    },
+    {
+      "name": "ServerEnvironment",
+      "variables": [
+        {
+          "name": "environmentUrl",
+          "value": "http://192.168.1.239:8080",
+          "type": "text",
+          "enabled": true,
+          "secret": false
+        }
+      ]
+    }
+  ]
+}
