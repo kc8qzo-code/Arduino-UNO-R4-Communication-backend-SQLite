@@ -2,16 +2,15 @@
 # Start Arduino Communication System Backend (Hidden)
 # ============================================
 
-# Run-Backend.ps1
+# Run-Backend
 
 $scriptDirectory = "C:\dev\Arduino-UNO-R4-Communication-backend-SQLite"
-$scriptName = "Run-ArduinoCommunicationApplication.ps1"
-$scriptPath = Join-Path $scriptDirectory $scriptName
+$scriptName = "Run-Arduino-R4-Communication-run-jar.ps1"
 
 Set-Location $scriptDirectory
 
 Write-Host "Starting Arduino Communication Backend..."
 
-& ".\Run-ArduinoCommunicationApplication.ps1"
+& ".\$scriptName"
 
 Write-Host "Backend started"
