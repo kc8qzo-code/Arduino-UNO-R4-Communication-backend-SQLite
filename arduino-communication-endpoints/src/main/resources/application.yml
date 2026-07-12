@@ -6,7 +6,7 @@ spring:
   datasource:
     # Resolved relative to the directory from which the application is started.
     # SQLite creates the database file when it does not already exist.
-    url: jdbc:sqlite:./ArduinoTestDB.db
+    url: jdbc:sqlite:${ARDUINO_DB_PATH:./ArduinoTestDB.db}
     driver-class-name: org.sqlite.JDBC
   jpa:
     database-platform: org.hibernate.community.dialect.SQLiteDialect
