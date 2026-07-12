@@ -1,0 +1,1 @@
+The PowerShell scripts are used by Task Scheduler item "Start Arduino Communication UI". Do not move!
