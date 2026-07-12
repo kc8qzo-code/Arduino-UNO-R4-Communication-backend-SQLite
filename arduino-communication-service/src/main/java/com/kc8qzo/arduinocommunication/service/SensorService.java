@@ -6,6 +6,7 @@ import com.kc8qzo.arduinocommunication.db.repositories.ArduinoSensorRepository;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Sort;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -40,15 +41,9 @@ public class SensorService {
                 .map(this::mapToSensorReadingDTO);
     }
 
-    public Optional<SensorReadingDTO> updateSensorReading(Long id, SensorReadingDTO dto) {
-        SensorReading dbSensorReading = arduinoSensorRepository.findById(id).orElse(null);
+    public Optional<SensorReadingDTO> updateSensorReading(Long id, @NonNull SensorReadingDTO dto) {
         dto.setId(id);
-        if (dbSensorReading != null) {
-            dto.setPostedAt(dbSensorReading.getPostedAt());
-        }
-
         SensorReading updateSensorReading = mapper.map(dto, SensorReading.class);
-
         return Optional.ofNullable(mapToSensorReadingDTO(arduinoSensorRepository.save(updateSensorReading)));
     }
 
