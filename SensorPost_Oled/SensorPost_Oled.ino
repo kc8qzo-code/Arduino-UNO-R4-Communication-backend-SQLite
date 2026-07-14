@@ -1,7 +1,7 @@
 /*
   SensorPost.ino
   ═══════════════════════════════════════════════════════════════════════════════
-  Arduino Uno R4 WiFi  →  HTTP POST every 5 s  →  http://192.168.1.239:8080/api/sensors
+  Arduino Uno R4 WiFi  →  HTTP POST every 2 s  →  http://192.168.0.101:8080/api/sensors
   Sensor  : DHT22 (Temperature + Humidity)
   Backend : REST API  →  SQLite database
 
