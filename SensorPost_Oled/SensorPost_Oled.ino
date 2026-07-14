@@ -51,9 +51,9 @@ char WIFI_SSID[] = SECRET_SSID;
 char WIFI_PASS[] = SECRET_PASS;
 
 // ── REST endpoint ─────────────────────────────────────────────────────────────
-const char SERVER_HOST[] = "192.168.1.239";
-const int  SERVER_PORT   = 8080;
-const char API_PATH[]    = "/api/sensors";
+const char SERVER_HOST[] = SECRET_SERVER_HOST;
+const int  SERVER_PORT   = SECRET_SERVER_PORT;
+const char API_PATH[]    = SECRET_API_PATH;
 
 // ── Device identity ───────────────────────────────────────────────────────────
 const char DEVICE_ID[]   = "arduino-r4-01";
