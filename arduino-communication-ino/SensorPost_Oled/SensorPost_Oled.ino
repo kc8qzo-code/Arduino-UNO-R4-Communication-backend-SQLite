@@ -1,4 +1,14 @@
 /*
+  Expected File
+  arduino_secrets.h
+
+  Must contain #define for
+  #define SECRET_SSID "SSID For WIFI Network"
+  #define SECRET_PASS "Password For SSID Above"
+  #define SECRET_SERVER_HOST "IP Or DNS name for backend API"
+  #define SECRET_SERVER_PORT 8080 or "Port for Backend API"
+  #define SECRET_API_PATH    "/api/sensors" Or "Whatever your API path is for PUT command"
+
   SensorPost.ino
   ═══════════════════════════════════════════════════════════════════════════════
   Arduino Uno R4 WiFi  →  HTTP POST every 2 s  →  http://192.168.0.101:8080/api/sensors
