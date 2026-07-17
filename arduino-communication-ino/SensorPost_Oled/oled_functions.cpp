@@ -1,5 +1,4 @@
 #include "oled_functions.h"
-
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -25,14 +24,16 @@ bool initializeOled() {
   return true;
 }
 
-void updateOled(float temp, float humidity, int light, unsigned long passCount) {
+void updateOled(float temp, float humidity, int light, unsigned long passCount, String dateTime) {
   display.clearDisplay();
 
-  display.setCursor(0, 28);
+  display.setCursor(0, 24);
   display.println("Temp: " + String(temp) + " F");
   display.println("Humidity: " + String(humidity) + "%");
   display.println("Light: " + String(light) + " Ohms");
   display.println("Pass: " + String(passCount));
+  display.println("Date: " + dateTime);
+
 
   display.display();
 }
