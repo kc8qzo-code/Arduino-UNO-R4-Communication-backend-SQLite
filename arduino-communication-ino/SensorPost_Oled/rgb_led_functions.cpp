@@ -8,6 +8,8 @@ namespace {
 constexpr int RED_PIN = 11;
 constexpr int GREEN_PIN = 10;
 constexpr int BLUE_PIN = 9;
+
+constexpr int FADE_DELAY = 10;
 }
 
 bool initializeRgbLed() {

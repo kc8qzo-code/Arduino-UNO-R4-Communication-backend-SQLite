@@ -4,6 +4,6 @@
 #include <Arduino.h>
 
 bool initializeOled();
-void updateOled(float temp, float humidity, int light, unsigned long passCount);
+void updateOled(float temp, float humidity, int light, unsigned long passCount, String dateTime);
 
 #endif

@@ -28,17 +28,37 @@
   Pin VSCL → Arduino A5 (or SCL pin)
   Pin SDA → Arduino A4 (or SDA pin)
 
+  RGB LED PINOUT On Arduino
+  Pin Red 11
+  Pin Green 10
+  Pin Blue 9
+
+  DS3231 RTC Clock Module
+  Pin VCC 5v
+  Pin GND - GND
+  Pin SDA - SDA On Arduino Parrellel with OLED
+  Pin SCL - SCL On Arduino Parrellel with OLED
+
   ── Required Libraries (Arduino Library Manager) ─────────────────────────────
-  • DHT sensor library
+  • DHT sensor library (DHT.h)
   • ArduinoHttpClient  by Arduino      (0.6.x)
   • Adafruit_SSD1306 
+  • Adafruit_BusIO
+  • Adafruit_RTCLib
   • Adafruit_GFX
   • Arduino_BuiltIn 
   • ArduinoGraphics
   • Arduino_LED_Matrix
   • Wire
+  • DS3231 by (by NorthernWidget)
   • ArduinoJson        by Benoit Blanchon (7.x)
   • WiFiS3             – bundled with "Arduino UNO R4 Boards" board package
+
+  Included files
+  • arduino_secrets
+  • oled_functions
+  • rgb_led_functions
+  • arduino_uno_matrix
 
   ── Board Package (Boards Manager) ───────────────────────────────────────────
   "Arduino UNO R4 Boards" by Arduino LLC
@@ -47,8 +67,10 @@
 #include <Arduino_BuiltIn.h>
 #include <ArduinoHttpClient.h>
 #include <WiFiS3.h>
+#include <RTClib.h>
 #include <ArduinoJson.h>
 #include <DHT.h>
+#include <Wire.h>
 #include "arduino_secrets.h"
 #include "oled_functions.h"
 #include "rgb_led_functions.h"
@@ -70,6 +92,10 @@ const char DEVICE_ID[]   = "arduino-r4-01";
 const unsigned long POST_INTERVAL_MS = 2000UL;
 const unsigned long MATRIX_INTERVAL = 250UL;
 
+// Timing configuration
+const unsigned long CYCLE_TIME = 15000; // Total cycle: 15 seconds
+const unsigned long STEP_TIME = 5;     // Time per color step 19 ms (approx 785 steps total)
+
 // ── DHT22 ─────────────────────────────────────────────────────────────────────
 #define DHT_PIN  4
 #define DHT_TYPE DHT11
@@ -80,20 +106,41 @@ WiFiClient  wifiClient;
 HttpClient  http(wifiClient, SERVER_HOST, SERVER_PORT);
 
 unsigned long lastPostTime  = 0;
+unsigned long lastVersionPostTime  = 0;
+unsigned long lastStepTime = 0;
 unsigned long successPostCount     = 0;
 unsigned long errorCount    = 0;
 unsigned long postCount    = 0;
+
+int colorState = 0;// Current and target RGB values
+int currentR = 255, currentG = 0, currentB = 0;
+int targetR = 255, targetG = 0, targetB = 0;
+
+RTC_DS3231 rtc;
 
 int lightOhms = 0;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 void setup() {
-  Serial.begin(19200);
+  Serial.begin(115200);
   while (!Serial && millis() < 3000);
 
   printBanner();
   dht.begin();
   delay(2000);   // DHT11 needs ~2 s after power-on before first reliable read
+
+  // Start I2C communication
+  Wire.begin();
+  if (!rtc.begin()) {
+    Serial.println("Couldn't find RTC. Check wiring.");
+    while (1) delay(10);
+  }
+
+  Serial.println("Reading DS3231 clock...");
+
+  // Set the time and date to match your computer's compile time.
+  // This automatically sets the RTC to the exact moment you upload the code.
+  // rtc.adjust(DateTime(__DATE__, __TIME__));
 
   initializeMatrix();
   
@@ -108,6 +155,9 @@ void setup() {
     Serial.println(F("RGB LED Pin Allocation Failed"));
     for(;;); // Don't proceed, loop forever
  }
+
+ updateRgbLed(currentR, currentG, currentB);
+ delay(200);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -121,18 +171,39 @@ void loop() {
 
   unsigned long currentMillis = millis();
  
+  if (currentMillis - lastStepTime >= STEP_TIME) {
+    lastStepTime = currentMillis;
+
+    // Smoothly transition current color toward target
+    if (currentR < targetR) currentR++;
+    else if (currentR > targetR) currentR--;
+
+    if (currentG < targetG) currentG++;
+    else if (currentG > targetG) currentG--;
+
+    if (currentB < targetB) currentB++;
+    else if (currentB > targetB) currentB--;
+
+    // Apply color to the LED pins
+    updateRgbLed(currentR, currentG, currentB);
+
+    // If target is reached, transition to the next state
+    if (currentR == targetR && currentG == targetG && currentB == targetB) {
+      colorState = (colorState + 1) % 6; // Cycle through 6 color transitions
+      setNextTargetColor();
+    }
+  }
+
   if (currentMillis - lastPostTime >= POST_INTERVAL_MS) {
     lastPostTime = currentMillis;
     buildSensorData();
     printStats();
   }
 
-  if (currentMillis - lastPostTime >= MATRIX_INTERVAL) {
-    lastPostTime = currentMillis;
+  if (currentMillis - lastVersionPostTime >= MATRIX_INTERVAL) {
+    lastVersionPostTime = currentMillis;
     updateMatrix("V2.0");
   }
-
-  updateRgbLed(146,23,171);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -147,6 +218,9 @@ void buildSensorData() {
   float temperature = dht.readTemperature(true);
   float r_fixed = 10000.0; // 10k resistor   
   int lightOhms = analogRead(A0);
+
+  // Read and print current RTC time
+  DateTime now = rtc.now();
   
   // Validate – DHT22 returns NaN on read failure
   if (isnan(humidity) || isnan(temperature)) {
@@ -155,11 +229,15 @@ void buildSensorData() {
     return;
   }
 
+  String dateTime = buildDateTime(now);
+  Serial.println(dateTime);
+
   JsonDocument doc;
   doc["temperature"] = round2(temperature);
   doc["humidity"]    = round2(humidity);
   doc["light"]  = lightOhms;
   doc["passValue"] = postCount;
+  doc["dateValue"] = dateTime;
 
   String body;
   serializeJson(doc, body);
@@ -171,7 +249,7 @@ void buildSensorData() {
   Serial.print(F("[POST] → "));
   Serial.println(body);
 
-  updateOled(temperature, humidity, lightOhms, postCount);
+  updateOled(temperature, humidity, lightOhms, postCount, dateTime);
 }
 
 void executeHttpRequest(ArduinoJson::JsonDocument doc, arduino::String body){
@@ -242,6 +320,50 @@ float round2(float val) {
   return roundf(val * 100.0f) / 100.0f;
 }
 
+String buildDateTime(const DateTime &dt){
+  auto two = [](uint8_t v){ return (v < 10) ? String("0") + String(v) : String(v); };
+  String s = "";
+  s += two(dt.month()) + "/" + two(dt.day()) + "/" + String(dt.year()) + " ";
+  s += two(dt.hour()) + ":" + two(dt.minute()) + ":" + two(dt.second());
+  return s;
+}
+
+// State machine to define the next color to fade into
+void setNextTargetColor() {
+  switch (colorState) {
+    case 0: // Red -> Yellow
+      targetR = 255; 
+      targetG = 255; 
+      targetB = 0;   
+      break;
+    case 1: // Yellow -> Green
+      targetR = 0;
+      targetG = 255;
+      targetB = 0;   
+      break;
+    case 2: // Green -> Cyan
+      targetR = 0;
+      targetG = 255; 
+      targetB = 255; 
+      break;
+    case 3: // Cyan -> Blue
+      targetR = 0;   
+      targetG = 0;   
+      targetB = 255; 
+      break; 
+    case 4: // Blue -> Magenta
+      targetR = 255; 
+      targetG = 0;   
+      targetB = 255; 
+      break; 
+    case 5: // Magenta -> Red
+      targetR = 255; 
+      targetG = 0;   
+      targetB = 0;   
+      break; 
+  }
+}
+
 void printStats() {
   Serial.print(F("[STATS] Posts OK: "));
   Serial.print(successPostCount);
@@ -254,6 +376,6 @@ void printBanner() {
   Serial.println(F("╔══════════════════════════════════════╗"));
   Serial.println(F("║  Arduino Uno R4 WiFi – DHT22 Logger ║"));
   Serial.println(F("║  Target : 192.168.1.239:8080         ║"));
-  Serial.println(F("║  Sensor : DHT22  Interval : 5 s      ║"));
+  Serial.println(F("║  Sensor : DHT22  Interval : 2 s      ║"));
   Serial.println(F("╚══════════════════════════════════════╝"));
 }
