@@ -65,7 +65,6 @@
   ═══════════════════════════════════════════════════════════════════════════════
 */
 #include <Arduino_BuiltIn.h>
-#include <ArduinoHttpClient.h>
 #include <WiFiS3.h>
 #include <RTClib.h>
 #include <ArduinoJson.h>
@@ -82,52 +81,58 @@ char WIFI_PASS[] = SECRET_PASS;
 
 // ── REST endpoint ─────────────────────────────────────────────────────────────
 const char SERVER_HOST[] = SECRET_SERVER_HOST;
-const int  SERVER_PORT   = SECRET_SERVER_PORT;
-const char API_PATH[]    = SECRET_API_PATH;
+const int SERVER_PORT = SECRET_SERVER_PORT;
+const char API_PATH[] = SECRET_API_PATH;
 
 // ── Device identity ───────────────────────────────────────────────────────────
-const char DEVICE_ID[]   = "arduino-r4-01";
+const char DEVICE_ID[] = "arduino-r4-01";
 
 // ── Post interval ─────────────────────────────────────────────────────────────
 const unsigned long POST_INTERVAL_MS = 2000UL;
 const unsigned long MATRIX_INTERVAL = 250UL;
 
 // Timing configuration
-const unsigned long CYCLE_TIME = 15000; // Total cycle: 15 seconds
-const unsigned long STEP_TIME = 5;     // Time per color step 19 ms (approx 785 steps total)
+const unsigned long STEP_TIME = 3;  // Time per color step 19 ms (approx 785 steps total)
 
 // ── DHT22 ─────────────────────────────────────────────────────────────────────
-#define DHT_PIN  4
+#define DHT_PIN 4
 #define DHT_TYPE DHT11
 DHT dht(DHT_PIN, DHT_TYPE);
 
 // ── Globals ───────────────────────────────────────────────────────────────────
-WiFiClient  wifiClient;
-HttpClient  http(wifiClient, SERVER_HOST, SERVER_PORT);
+WiFiClient wifiClient;
 
-unsigned long lastPostTime  = 0;
-unsigned long lastVersionPostTime  = 0;
+enum HttpRequestState { HTTP_IDLE,
+                        HTTP_READY,
+                        HTTP_READING };
+HttpRequestState httpRequestState = HTTP_IDLE;
+String pendingHttpBody;
+String httpResponse;
+unsigned long httpRequestStarted = 0;
+const unsigned long HTTP_TIMEOUT_MS = 5000UL;
+
+unsigned long lastPostTime = 0;
+unsigned long lastVersionPostTime = 0;
 unsigned long lastStepTime = 0;
-unsigned long successPostCount     = 0;
-unsigned long errorCount    = 0;
-unsigned long postCount    = 0;
+unsigned long successPostCount = 0;
+unsigned long errorCount = 0;
+unsigned long postCount = 0;
 
-int colorState = 0;// Current and target RGB values
+int colorState = 0;  // Current and target RGB values
 int currentR = 255, currentG = 0, currentB = 0;
 int targetR = 255, targetG = 0, targetB = 0;
 
 RTC_DS3231 rtc;
 
-int lightOhms = 0;
-
 // ═══════════════════════════════════════════════════════════════════════════════
 void setup() {
   Serial.begin(115200);
-  while (!Serial && millis() < 3000);
+  while (!Serial && millis() < 3000)
+    ;
 
   printBanner();
   dht.begin();
-  delay(2000);   // DHT11 needs ~2 s after power-on before first reliable read
+  delay(2000);  // DHT11 needs ~2 s after power-on before first reliable read
 
   // Start I2C communication
   Wire.begin();
@@ -143,21 +148,23 @@ void setup() {
   // rtc.adjust(DateTime(__DATE__, __TIME__));
 
   initializeMatrix();
-  
-  connectWiFi(); 
+
+  connectWiFi();
 
   if (!initializeOled()) {
     Serial.println(F("SSD1306 allocation failed"));
-    for(;;); // Don't proceed, loop forever
+    for (;;)
+      ;  // Don't proceed, loop forever
   }
 
- if(!initializeRgbLed()){
+  if (!initializeRgbLed()) {
     Serial.println(F("RGB LED Pin Allocation Failed"));
-    for(;;); // Don't proceed, loop forever
- }
+    for (;;)
+      ;  // Don't proceed, loop forever
+  }
 
- updateRgbLed(currentR, currentG, currentB);
- delay(200);
+  updateRgbLed(currentR, currentG, currentB);
+  delay(200);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -170,7 +177,7 @@ void loop() {
   }
 
   unsigned long currentMillis = millis();
- 
+
   if (currentMillis - lastStepTime >= STEP_TIME) {
     lastStepTime = currentMillis;
 
@@ -189,7 +196,7 @@ void loop() {
 
     // If target is reached, transition to the next state
     if (currentR == targetR && currentG == targetG && currentB == targetB) {
-      colorState = (colorState + 1) % 6; // Cycle through 6 color transitions
+      colorState = (colorState + 1) % 6;  // Cycle through 6 color transitions
       setNextTargetColor();
     }
   }
@@ -200,8 +207,10 @@ void loop() {
     printStats();
   }
 
+  serviceHttpRequest();
+
   if (currentMillis - lastVersionPostTime >= MATRIX_INTERVAL) {
-    lastVersionPostTime = currentMillis;
+    lastVersionPostTime += MATRIX_INTERVAL;
     updateMatrix("V2.0");
   }
 }
@@ -211,17 +220,21 @@ void loop() {
 // ═══════════════════════════════════════════════════════════════════════════════
 void buildSensorData() {
 
+  if (httpRequestState != HTTP_IDLE) {
+    Serial.println(F("[POST] Previous request still active; sample skipped"));
+    return;
+  }
+
   postCount++;
 
   // ── 1. Read DHT11 and light sensor ──────────────────────────────────────────────────────────
-  float humidity    = dht.readHumidity();
+  float humidity = dht.readHumidity();
   float temperature = dht.readTemperature(true);
-  float r_fixed = 10000.0; // 10k resistor   
   int lightOhms = analogRead(A0);
 
   // Read and print current RTC time
   DateTime now = rtc.now();
-  
+
   // Validate – DHT22 returns NaN on read failure
   if (isnan(humidity) || isnan(temperature)) {
     Serial.println(F("[DHT] ✘ Read failed – sensor not ready or wiring issue"));
@@ -234,53 +247,85 @@ void buildSensorData() {
 
   JsonDocument doc;
   doc["temperature"] = round2(temperature);
-  doc["humidity"]    = round2(humidity);
-  doc["light"]  = lightOhms;
+  doc["humidity"] = round2(humidity);
+  doc["light"] = lightOhms;
   doc["passValue"] = postCount;
   doc["dateValue"] = dateTime;
 
-  String body;
-  serializeJson(doc, body);
-
-  executeHttpRequest(doc, body);
+  serializeJson(doc, pendingHttpBody);
+  httpRequestState = HTTP_READY;
 
   // ── 3. HTTP POST ───────────────────────────────────────────────────────────
   Serial.println(F("\n────────────────────────────"));
   Serial.print(F("[POST] → "));
-  Serial.println(body);
+  Serial.println(pendingHttpBody);
 
   updateOled(temperature, humidity, lightOhms, postCount, dateTime);
 }
 
-void executeHttpRequest(ArduinoJson::JsonDocument doc, arduino::String body){
-  http.beginRequest();
-  http.post(API_PATH);
-  http.sendHeader("Content-Type", "application/json");
-  http.sendHeader("Content-Length", String(body.length()));
-  http.sendHeader("X-Device-Id", DEVICE_ID);
-  http.sendHeader("Connection", "close");
+void serviceHttpRequest() {
+  if (httpRequestState == HTTP_IDLE) return;
 
-  http.beginBody();
-  http.print(body);
-  http.endRequest();
+  if (httpRequestState == HTTP_READY) {
+    if (!wifiClient.connect(SERVER_HOST, SERVER_PORT)) {
+      Serial.println(F("[HTTP] Connection failed"));
+      errorCount++;
+      pendingHttpBody = "";
+      httpRequestState = HTTP_IDLE;
+      return;
+    }
+
+    wifiClient.print(F("POST "));
+    wifiClient.print(API_PATH);
+    wifiClient.println(F(" HTTP/1.1"));
+    wifiClient.print(F("Host: "));
+    wifiClient.println(SERVER_HOST);
+    wifiClient.println(F("Content-Type: application/json"));
+    wifiClient.print(F("Content-Length: "));
+    wifiClient.println(pendingHttpBody.length());
+    wifiClient.print(F("X-Device-Id: "));
+    wifiClient.println(DEVICE_ID);
+    wifiClient.println(F("Connection: close"));
+    wifiClient.println();
+    wifiClient.print(pendingHttpBody);
+
+    httpResponse = "";
+    httpRequestStarted = millis();
+    httpRequestState = HTTP_READING;
+    return;
+  }
+
+  byte bytesRead = 0;
+  while (wifiClient.available() && bytesRead < 64) {
+    char c = wifiClient.read();
+    if (httpResponse.length() < 1024) httpResponse += c;
+    bytesRead++;
+  }
+
+  bool timedOut = millis() - httpRequestStarted >= HTTP_TIMEOUT_MS;
+  if (wifiClient.connected() && !timedOut) return;
+
+  wifiClient.stop();
+  int firstSpace = httpResponse.indexOf(' ');
+  int statusCode = firstSpace >= 0
+                     ? httpResponse.substring(firstSpace + 1, firstSpace + 4).toInt()
+                     : -1;
 
   // ── 4. Response ────────────────────────────────────────────────────────────
-  int statusCode = http.responseStatusCode();
-  String response   = http.responseBody();
-
   Serial.print(F("[HTTP] Status : "));
   Serial.println(statusCode);
 
-  Serial.print(F("[HTTP] Body   : "));
-  Serial.println(response);
-
-  if (statusCode >= 200 && statusCode < 300) {
+  if (!timedOut && statusCode >= 200 && statusCode < 300) {
     Serial.println(F("[HTTP] ✔ Saved to database"));
     successPostCount++;
   } else {
     Serial.println(F("[HTTP] ✘ Server error – check backend logs"));
     errorCount++;
   }
+
+  pendingHttpBody = "";
+  httpResponse = "";
+  httpRequestState = HTTP_IDLE;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -320,8 +365,10 @@ float round2(float val) {
   return roundf(val * 100.0f) / 100.0f;
 }
 
-String buildDateTime(const DateTime &dt){
-  auto two = [](uint8_t v){ return (v < 10) ? String("0") + String(v) : String(v); };
+String buildDateTime(const DateTime &dt) {
+  auto two = [](uint8_t v) {
+    return (v < 10) ? String("0") + String(v) : String(v);
+  };
   String s = "";
   s += two(dt.month()) + "/" + two(dt.day()) + "/" + String(dt.year()) + " ";
   s += two(dt.hour()) + ":" + two(dt.minute()) + ":" + two(dt.second());
@@ -331,36 +378,36 @@ String buildDateTime(const DateTime &dt){
 // State machine to define the next color to fade into
 void setNextTargetColor() {
   switch (colorState) {
-    case 0: // Red -> Yellow
-      targetR = 255; 
-      targetG = 255; 
-      targetB = 0;   
+    case 0:  // Red -> Yellow
+      targetR = 255;
+      targetG = 255;
+      targetB = 0;
       break;
-    case 1: // Yellow -> Green
+    case 1:  // Yellow -> Green
       targetR = 0;
       targetG = 255;
-      targetB = 0;   
+      targetB = 0;
       break;
-    case 2: // Green -> Cyan
+    case 2:  // Green -> Cyan
       targetR = 0;
-      targetG = 255; 
-      targetB = 255; 
+      targetG = 255;
+      targetB = 255;
       break;
-    case 3: // Cyan -> Blue
-      targetR = 0;   
-      targetG = 0;   
-      targetB = 255; 
-      break; 
-    case 4: // Blue -> Magenta
-      targetR = 255; 
-      targetG = 0;   
-      targetB = 255; 
-      break; 
-    case 5: // Magenta -> Red
-      targetR = 255; 
-      targetG = 0;   
-      targetB = 0;   
-      break; 
+    case 3:  // Cyan -> Blue
+      targetR = 0;
+      targetG = 0;
+      targetB = 255;
+      break;
+    case 4:  // Blue -> Magenta
+      targetR = 255;
+      targetG = 0;
+      targetB = 255;
+      break;
+    case 5:  // Magenta -> Red
+      targetR = 255;
+      targetG = 0;
+      targetB = 0;
+      break;
   }
 }
 
