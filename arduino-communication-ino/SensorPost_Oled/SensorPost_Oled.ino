@@ -43,6 +43,8 @@
   • DHT sensor library (DHT.h)
   • ArduinoHttpClient  by Arduino      (0.6.x)
   • Adafruit_SSD1306 
+  • Adafruit_BusIO
+  • Adafruit_RTCLib
   • Adafruit_GFX
   • Arduino_BuiltIn 
   • ArduinoGraphics
@@ -65,9 +67,9 @@
 #include <Arduino_BuiltIn.h>
 #include <ArduinoHttpClient.h>
 #include <WiFiS3.h>
+#include <RTClib.h>
 #include <ArduinoJson.h>
 #include <DHT.h>
-#include <DS3231.h>
 #include <Wire.h>
 #include "arduino_secrets.h"
 #include "oled_functions.h"
@@ -114,7 +116,7 @@ int colorState = 0;// Current and target RGB values
 int currentR = 255, currentG = 0, currentB = 0;
 int targetR = 255, targetG = 0, targetB = 0;
 
-DS3231 rtc;
+RTC_DS3231 rtc;
 
 int lightOhms = 0;
 
@@ -129,6 +131,11 @@ void setup() {
 
   // Start I2C communication
   Wire.begin();
+  if (!rtc.begin()) {
+    Serial.println("Couldn't find RTC. Check wiring.");
+    while (1) delay(10);
+  }
+
   Serial.println("Reading DS3231 clock...");
 
   // Set the time and date to match your computer's compile time.
@@ -150,6 +157,7 @@ void setup() {
  }
 
  updateRgbLed(currentR, currentG, currentB);
+ delay(200);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -211,8 +219,8 @@ void buildSensorData() {
   float r_fixed = 10000.0; // 10k resistor   
   int lightOhms = analogRead(A0);
 
-  // Read the current date and time from the DS3231
-  DateTime now = RTClib::now();
+  // Read and print current RTC time
+  DateTime now = rtc.now();
   
   // Validate – DHT22 returns NaN on read failure
   if (isnan(humidity) || isnan(temperature)) {
@@ -222,6 +230,7 @@ void buildSensorData() {
   }
 
   String dateTime = buildDateTime(now);
+  Serial.println(dateTime);
 
   JsonDocument doc;
   doc["temperature"] = round2(temperature);
@@ -304,35 +313,6 @@ void connectWiFi() {
   }
 }
 
-String buildDateTime(DateTime now){
-
-  String localValue = "";
-  // Print date: MM/DD/YYYY
-  localValue += returnTwoDigits(now.month()) + "/";
-  Serial.print("/");
-
-  localValue += returnTwoDigits(now.day()) + "/";
-  Serial.print("/");
-
-  localValue += String(now.year()) + " ";
-  Serial.print(now.year());
-
-  Serial.print(" ");
-
-  // Print time: HH:MM:SS
-  localValue += returnTwoDigits(now.hour()) + ":";
-  Serial.print(":");
-  
-  localValue += returnTwoDigits(now.minute()) + ":";
-  Serial.print(":");
-
-  localValue += returnTwoDigits(now.second());
-
-  Serial.println();
-
-  return localValue;
-}
-
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Helpers
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -340,18 +320,12 @@ float round2(float val) {
   return roundf(val * 100.0f) / 100.0f;
 }
 
-String returnTwoDigits(uint8_t value) {
-  String localValue = "";
-  if (value < 10) {
-    Serial.print("0");
-    localValue += "0";
-  }
-
-  String v1 = "localValue: " + localValue + "value: " + value;
-  Serial.println(v1);
-  Serial.print(value);
-  localValue += value;
-  return localValue;
+String buildDateTime(const DateTime &dt){
+  auto two = [](uint8_t v){ return (v < 10) ? String("0") + String(v) : String(v); };
+  String s = "";
+  s += two(dt.month()) + "/" + two(dt.day()) + "/" + String(dt.year()) + " ";
+  s += two(dt.hour()) + ":" + two(dt.minute()) + ":" + two(dt.second());
+  return s;
 }
 
 // State machine to define the next color to fade into
