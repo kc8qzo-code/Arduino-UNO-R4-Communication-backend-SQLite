@@ -71,9 +71,10 @@
 #include <DHT.h>
 #include <Wire.h>
 #include "arduino_secrets.h"
-#include "oled_functions.h"
-#include "rgb_led_functions.h"
-#include "arduino_uno_matrix.h"
+#include "src/date_functions.h"
+#include "src/oled_functions.h"
+#include "src/rgb_led_functions.h"
+#include "src/arduino_uno_matrix.h"
 
 // ── Wi-Fi credentials ─────────────────────────────────────────────────────────
 char WIFI_SSID[] = SECRET_SSID;
@@ -242,15 +243,19 @@ void buildSensorData() {
     return;
   }
 
-  String dateTime = buildDateTime(now);
+  String dateTime = buildReadableDate(now);
   Serial.println(dateTime);
+
+  String utcStyleTime = buildUTCDate(now);
+  Serial.println("UTC Type");
+  Serial.println(utcStyleTime);
 
   JsonDocument doc;
   doc["temperature"] = round2(temperature);
   doc["humidity"] = round2(humidity);
   doc["light"] = lightOhms;
   doc["passValue"] = postCount;
-  doc["dateValue"] = dateTime;
+  doc["sentAt"] = utcStyleTime;
 
   serializeJson(doc, pendingHttpBody);
   httpRequestState = HTTP_READY;
@@ -363,16 +368,6 @@ void connectWiFi() {
 // ═══════════════════════════════════════════════════════════════════════════════
 float round2(float val) {
   return roundf(val * 100.0f) / 100.0f;
-}
-
-String buildDateTime(const DateTime &dt) {
-  auto two = [](uint8_t v) {
-    return (v < 10) ? String("0") + String(v) : String(v);
-  };
-  String s = "";
-  s += two(dt.month()) + "/" + two(dt.day()) + "/" + String(dt.year()) + " ";
-  s += two(dt.hour()) + ":" + two(dt.minute()) + ":" + two(dt.second());
-  return s;
 }
 
 // State machine to define the next color to fade into

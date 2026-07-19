@@ -28,5 +28,7 @@ public class SensorReadingDTO {
     @ApiModelProperty(value = "passValue", example = "123456")
     private long passValue;
 
+    private Instant sentAt;
+
     private Instant postedAt;
 }

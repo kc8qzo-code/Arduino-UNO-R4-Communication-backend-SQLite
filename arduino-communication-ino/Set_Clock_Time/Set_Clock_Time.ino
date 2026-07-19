@@ -15,8 +15,8 @@ void setup() {
     while (1) delay(10);
   }
 
-  // Set the RTC to the sketch compile time
-  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  // Set the RTC to four hours after the sketch compile time
+  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)) + TimeSpan(0, 4, 0, 0));
 
   // Read and print current RTC time
   DateTime now = rtc.now();
