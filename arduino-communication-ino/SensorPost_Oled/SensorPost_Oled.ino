@@ -71,7 +71,7 @@
 #include <DHT.h>
 #include <Wire.h>
 #include "arduino_secrets.h"
-#include "date_functions.h"
+#include "src/date_functions.h"
 #include "src/oled_functions.h"
 #include "src/rgb_led_functions.h"
 #include "src/arduino_uno_matrix.h"
