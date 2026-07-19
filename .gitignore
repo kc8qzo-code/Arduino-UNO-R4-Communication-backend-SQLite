@@ -34,3 +34,7 @@ build/
 .vscode/
 /logs/backend-error.log
 /logs/backend-output.log
+
+.build/
+.agents/
+.git/

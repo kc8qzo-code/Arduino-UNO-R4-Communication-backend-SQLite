@@ -37,6 +37,9 @@ public class SensorReading {
     @Column
     private long passValue;
 
+    @Column
+    private Instant sentAt;
+
     @Column(nullable = false)
     private Instant postedAt;
 }
