@@ -39,6 +39,10 @@
   Pin SDA - SDA On Arduino Parrellel with OLED
   Pin SCL - SCL On Arduino Parrellel with OLED
 
+  Passive Buzzer
+  PIN GND -> GND
+  PIN + -> Pin 5 (PWM)
+
   ── Required Libraries (Arduino Library Manager) ─────────────────────────────
   • DHT sensor library (DHT.h)
   • ArduinoHttpClient  by Arduino      (0.6.x)
