@@ -117,6 +117,7 @@ String pendingHttpBody;
 String httpResponse;
 unsigned long httpRequestStarted = 0;
 const unsigned long HTTP_TIMEOUT_MS = 5000UL;
+const int HTTP_CONNECT_TIMEOUT_MS = 500;
 
 unsigned long lastPostTime = 0;
 unsigned long lastVersionPostTime = 0;
@@ -137,12 +138,14 @@ RTC_DS3231 rtc;
 // ═══════════════════════════════════════════════════════════════════════════════
 void setup() {
   Serial.begin(115200);
-  while (!Serial && millis() < 3000)
-    ;
+  while (!Serial && millis() < 3000);
 
   printBanner();
   dht.begin();
   delay(2000);  // DHT11 needs ~2 s after power-on before first reliable read
+
+  // Keep an unavailable server from blocking an entire loop() pass.
+  wifiClient.setConnectionTimeout(HTTP_CONNECT_TIMEOUT_MS);
 
   // Start I2C communication
   Wire.begin();
@@ -181,6 +184,10 @@ void setup() {
 void loop() {
   // Reconnect Wi-Fi if dropped
   if (WiFi.status() != WL_CONNECTED) {
+    wifiClient.stop();
+    pendingHttpBody = "";
+    httpResponse = "";
+    httpRequestState = HTTP_IDLE;
     Serial.println(F("\n[WiFi] Connection lost – reconnecting…"));
     connectWiFi();
     return;
@@ -289,6 +296,7 @@ void serviceHttpRequest() {
   if (httpRequestState == HTTP_READY) {
     if (!wifiClient.connect(SERVER_HOST, SERVER_PORT)) {
       Serial.println(F("[HTTP] Connection failed"));
+      wifiClient.stop();
       errorCount++;
       pendingHttpBody = "";
       httpRequestState = HTTP_IDLE;
@@ -312,6 +320,20 @@ void serviceHttpRequest() {
     httpResponse = "";
     httpRequestStarted = millis();
     httpRequestState = HTTP_READING;
+    return;
+  }
+
+  // Drop a dead socket immediately instead of leaving this request active until
+  // the response timeout expires. The next loop() pass remains free to service
+  // the display, LED, matrix, and sensor timers.
+  int availableBytes = wifiClient.available();
+  if (availableBytes == 0 && !wifiClient.connected()) {
+    Serial.println(F("[HTTP] Client is no longer active; request cancelled"));
+    wifiClient.stop();
+    pendingHttpBody = "";
+    httpResponse = "";
+    httpRequestState = HTTP_IDLE;
+    errorCount++;
     return;
   }
 
