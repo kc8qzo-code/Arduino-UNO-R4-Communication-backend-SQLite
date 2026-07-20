@@ -131,6 +131,7 @@ void setup() {
   while (!Serial && millis() < 3000);
 
   printBanner();
+
   dht.begin();
   delay(2000);  // DHT11 needs ~2 s after power-on before first reliable read
 
@@ -145,10 +146,6 @@ void setup() {
   }
 
   Serial.println("Reading DS3231 clock...");
-
-  // Set the time and date to match your computer's compile time.
-  // This automatically sets the RTC to the exact moment you upload the code.
-  // rtc.adjust(DateTime(__DATE__, __TIME__));
 
   initializeMatrix();
 
@@ -263,20 +260,4 @@ void buildSensorData() {
 // ═══════════════════════════════════════════════════════════════════════════════
 float round2(float val) {
   return roundf(val * 100.0f) / 100.0f;
-}
-
-void printStats() {
-  Serial.print(F("[STATS] Posts OK: "));
-  Serial.print(successPostCount);
-  Serial.print(F("  Errors: "));
-  Serial.println(errorCount);
-}
-
-void printBanner() {
-  Serial.println(F(""));
-  Serial.println(F("╔══════════════════════════════════════╗"));
-  Serial.println(F("║  Arduino Uno R4 WiFi – DHT22 Logger ║"));
-  Serial.println(F("║  Target : 192.168.1.239:8080         ║"));
-  Serial.println(F("║  Sensor : DHT22  Interval : 2 s      ║"));
-  Serial.println(F("╚══════════════════════════════════════╝"));
 }

@@ -28,5 +28,7 @@ extern unsigned long errorCount;
 
 void serviceHttpRequest();
 void connectWiFi();
+void printStats();
+void printBanner();
 
 #endif
