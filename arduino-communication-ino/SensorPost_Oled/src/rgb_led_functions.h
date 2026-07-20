@@ -5,5 +5,6 @@
 
 bool initializeRgbLed();
 void updateRgbLed(int r, int g, int b);
+void slowFadeRgbColors(unsigned long currentMillis);
 
 #endif
