@@ -39,6 +39,10 @@
   Pin SDA - SDA On Arduino Parrellel with OLED
   Pin SCL - SCL On Arduino Parrellel with OLED
 
+  Passive Buzzer
+  PIN GND -> GND
+  PIN + -> Pin 5 (PWM)
+
   ── Required Libraries (Arduino Library Manager) ─────────────────────────────
   • DHT sensor library (DHT.h)
   • ArduinoHttpClient  by Arduino      (0.6.x)
@@ -75,6 +79,8 @@
 #include "src/oled_functions.h"
 #include "src/rgb_led_functions.h"
 #include "src/arduino_uno_matrix.h"
+#include "src/buzzer_functions.h"
+#include "src/wifi_functions.h"
 
 // ── Wi-Fi credentials ─────────────────────────────────────────────────────────
 char WIFI_SSID[] = SECRET_SSID;
@@ -91,9 +97,7 @@ const char DEVICE_ID[] = "arduino-r4-01";
 // ── Post interval ─────────────────────────────────────────────────────────────
 const unsigned long POST_INTERVAL_MS = 2000UL;
 const unsigned long MATRIX_INTERVAL = 250UL;
-
-// Timing configuration
-const unsigned long STEP_TIME = 3;  // Time per color step 19 ms (approx 785 steps total)
+const unsigned long MELODY_INTERVAL = 10000UL;  // Play melody every 10 seconds
 
 // ── DHT22 ─────────────────────────────────────────────────────────────────────
 #define DHT_PIN 4
@@ -103,37 +107,35 @@ DHT dht(DHT_PIN, DHT_TYPE);
 // ── Globals ───────────────────────────────────────────────────────────────────
 WiFiClient wifiClient;
 
-enum HttpRequestState { HTTP_IDLE,
-                        HTTP_READY,
-                        HTTP_READING };
 HttpRequestState httpRequestState = HTTP_IDLE;
 String pendingHttpBody;
 String httpResponse;
 unsigned long httpRequestStarted = 0;
 const unsigned long HTTP_TIMEOUT_MS = 5000UL;
+const int HTTP_CONNECT_TIMEOUT_MS = 500;
 
 unsigned long lastPostTime = 0;
 unsigned long lastVersionPostTime = 0;
-unsigned long lastStepTime = 0;
+unsigned long lastMelodyTime = 0;
 unsigned long successPostCount = 0;
 unsigned long errorCount = 0;
 unsigned long postCount = 0;
 
-int colorState = 0;  // Current and target RGB values
-int currentR = 255, currentG = 0, currentB = 0;
-int targetR = 255, targetG = 0, targetB = 0;
+bool notPlayedMelody = true;
 
 RTC_DS3231 rtc;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 void setup() {
   Serial.begin(115200);
-  while (!Serial && millis() < 3000)
-    ;
+  while (!Serial && millis() < 3000);
 
   printBanner();
   dht.begin();
   delay(2000);  // DHT11 needs ~2 s after power-on before first reliable read
+
+  // Keep an unavailable server from blocking an entire loop() pass.
+  wifiClient.setConnectionTimeout(HTTP_CONNECT_TIMEOUT_MS);
 
   // Start I2C communication
   Wire.begin();
@@ -164,7 +166,6 @@ void setup() {
       ;  // Don't proceed, loop forever
   }
 
-  updateRgbLed(currentR, currentG, currentB);
   delay(200);
 }
 
@@ -172,6 +173,10 @@ void setup() {
 void loop() {
   // Reconnect Wi-Fi if dropped
   if (WiFi.status() != WL_CONNECTED) {
+    wifiClient.stop();
+    pendingHttpBody = "";
+    httpResponse = "";
+    httpRequestState = HTTP_IDLE;
     Serial.println(F("\n[WiFi] Connection lost – reconnecting…"));
     connectWiFi();
     return;
@@ -179,28 +184,7 @@ void loop() {
 
   unsigned long currentMillis = millis();
 
-  if (currentMillis - lastStepTime >= STEP_TIME) {
-    lastStepTime = currentMillis;
-
-    // Smoothly transition current color toward target
-    if (currentR < targetR) currentR++;
-    else if (currentR > targetR) currentR--;
-
-    if (currentG < targetG) currentG++;
-    else if (currentG > targetG) currentG--;
-
-    if (currentB < targetB) currentB++;
-    else if (currentB > targetB) currentB--;
-
-    // Apply color to the LED pins
-    updateRgbLed(currentR, currentG, currentB);
-
-    // If target is reached, transition to the next state
-    if (currentR == targetR && currentG == targetG && currentB == targetB) {
-      colorState = (colorState + 1) % 6;  // Cycle through 6 color transitions
-      setNextTargetColor();
-    }
-  }
+  slowFadeRgbColors(currentMillis);
 
   if (currentMillis - lastPostTime >= POST_INTERVAL_MS) {
     lastPostTime = currentMillis;
@@ -213,6 +197,12 @@ void loop() {
   if (currentMillis - lastVersionPostTime >= MATRIX_INTERVAL) {
     lastVersionPostTime += MATRIX_INTERVAL;
     updateMatrix("V2.0");
+  }
+
+  if (currentMillis - lastMelodyTime >= MELODY_INTERVAL && notPlayedMelody) {
+    lastMelodyTime += MELODY_INTERVAL;
+    notPlayedMelody = false;
+    shaveAndAHaircut();
   }
 }
 
@@ -268,142 +258,11 @@ void buildSensorData() {
   updateOled(temperature, humidity, lightOhms, postCount, dateTime);
 }
 
-void serviceHttpRequest() {
-  if (httpRequestState == HTTP_IDLE) return;
-
-  if (httpRequestState == HTTP_READY) {
-    if (!wifiClient.connect(SERVER_HOST, SERVER_PORT)) {
-      Serial.println(F("[HTTP] Connection failed"));
-      errorCount++;
-      pendingHttpBody = "";
-      httpRequestState = HTTP_IDLE;
-      return;
-    }
-
-    wifiClient.print(F("POST "));
-    wifiClient.print(API_PATH);
-    wifiClient.println(F(" HTTP/1.1"));
-    wifiClient.print(F("Host: "));
-    wifiClient.println(SERVER_HOST);
-    wifiClient.println(F("Content-Type: application/json"));
-    wifiClient.print(F("Content-Length: "));
-    wifiClient.println(pendingHttpBody.length());
-    wifiClient.print(F("X-Device-Id: "));
-    wifiClient.println(DEVICE_ID);
-    wifiClient.println(F("Connection: close"));
-    wifiClient.println();
-    wifiClient.print(pendingHttpBody);
-
-    httpResponse = "";
-    httpRequestStarted = millis();
-    httpRequestState = HTTP_READING;
-    return;
-  }
-
-  byte bytesRead = 0;
-  while (wifiClient.available() && bytesRead < 64) {
-    char c = wifiClient.read();
-    if (httpResponse.length() < 1024) httpResponse += c;
-    bytesRead++;
-  }
-
-  bool timedOut = millis() - httpRequestStarted >= HTTP_TIMEOUT_MS;
-  if (wifiClient.connected() && !timedOut) return;
-
-  wifiClient.stop();
-  int firstSpace = httpResponse.indexOf(' ');
-  int statusCode = firstSpace >= 0
-                     ? httpResponse.substring(firstSpace + 1, firstSpace + 4).toInt()
-                     : -1;
-
-  // ── 4. Response ────────────────────────────────────────────────────────────
-  Serial.print(F("[HTTP] Status : "));
-  Serial.println(statusCode);
-
-  if (!timedOut && statusCode >= 200 && statusCode < 300) {
-    Serial.println(F("[HTTP] ✔ Saved to database"));
-    successPostCount++;
-  } else {
-    Serial.println(F("[HTTP] ✘ Server error – check backend logs"));
-    errorCount++;
-  }
-
-  pendingHttpBody = "";
-  httpResponse = "";
-  httpRequestState = HTTP_IDLE;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-//  Wi-Fi connection (blocking with timeout)
-// ═══════════════════════════════════════════════════════════════════════════════
-void connectWiFi() {
-  Serial.print(F("[WiFi] Connecting to "));
-  Serial.print(WIFI_SSID);
-
-  WiFi.disconnect();
-  delay(200);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-
-  int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 40) {
-    delay(500);
-    Serial.print('.');
-    attempts++;
-  }
-
-  Serial.println();
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.print(F("[WiFi] ✔ Connected  IP: "));
-    Serial.print(WiFi.localIP());
-    Serial.print(F("  RSSI: "));
-    Serial.print(WiFi.RSSI());
-    Serial.println(F(" dBm"));
-  } else {
-    Serial.println(F("[WiFi] ✘ Failed to connect – will retry next cycle"));
-  }
-}
-
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Helpers
 // ═══════════════════════════════════════════════════════════════════════════════
 float round2(float val) {
   return roundf(val * 100.0f) / 100.0f;
-}
-
-// State machine to define the next color to fade into
-void setNextTargetColor() {
-  switch (colorState) {
-    case 0:  // Red -> Yellow
-      targetR = 255;
-      targetG = 255;
-      targetB = 0;
-      break;
-    case 1:  // Yellow -> Green
-      targetR = 0;
-      targetG = 255;
-      targetB = 0;
-      break;
-    case 2:  // Green -> Cyan
-      targetR = 0;
-      targetG = 255;
-      targetB = 255;
-      break;
-    case 3:  // Cyan -> Blue
-      targetR = 0;
-      targetG = 0;
-      targetB = 255;
-      break;
-    case 4:  // Blue -> Magenta
-      targetR = 255;
-      targetG = 0;
-      targetB = 255;
-      break;
-    case 5:  // Magenta -> Red
-      targetR = 255;
-      targetG = 0;
-      targetB = 0;
-      break;
-  }
 }
 
 void printStats() {
