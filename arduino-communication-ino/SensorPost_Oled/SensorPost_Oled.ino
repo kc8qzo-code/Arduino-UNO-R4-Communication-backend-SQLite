@@ -75,6 +75,7 @@
 #include "src/oled_functions.h"
 #include "src/rgb_led_functions.h"
 #include "src/arduino_uno_matrix.h"
+#include "src/buzzer_functions.h"
 
 // ── Wi-Fi credentials ─────────────────────────────────────────────────────────
 char WIFI_SSID[] = SECRET_SSID;
@@ -91,6 +92,7 @@ const char DEVICE_ID[] = "arduino-r4-01";
 // ── Post interval ─────────────────────────────────────────────────────────────
 const unsigned long POST_INTERVAL_MS = 2000UL;
 const unsigned long MATRIX_INTERVAL = 250UL;
+const unsigned long MELODY_INTERVAL = 10000UL;  // Play melody every 10 seconds
 
 // Timing configuration
 const unsigned long STEP_TIME = 3;  // Time per color step 19 ms (approx 785 steps total)
@@ -114,6 +116,7 @@ const unsigned long HTTP_TIMEOUT_MS = 5000UL;
 
 unsigned long lastPostTime = 0;
 unsigned long lastVersionPostTime = 0;
+unsigned long lastMelodyTime = 0;
 unsigned long lastStepTime = 0;
 unsigned long successPostCount = 0;
 unsigned long errorCount = 0;
@@ -122,6 +125,8 @@ unsigned long postCount = 0;
 int colorState = 0;  // Current and target RGB values
 int currentR = 255, currentG = 0, currentB = 0;
 int targetR = 255, targetG = 0, targetB = 0;
+
+bool notPlayedMelody = true;
 
 RTC_DS3231 rtc;
 
@@ -213,6 +218,12 @@ void loop() {
   if (currentMillis - lastVersionPostTime >= MATRIX_INTERVAL) {
     lastVersionPostTime += MATRIX_INTERVAL;
     updateMatrix("V2.0");
+  }
+
+  if (currentMillis - lastMelodyTime >= MELODY_INTERVAL && notPlayedMelody) {
+    lastMelodyTime += MELODY_INTERVAL;
+    notPlayedMelody = false;
+    shaveAndAHaircut();
   }
 }
 
