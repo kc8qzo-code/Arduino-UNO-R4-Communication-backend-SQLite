@@ -104,3 +104,19 @@ void connectWiFi() {
     Serial.println(F("[WiFi] Failed to connect - will retry next cycle"));
   }
 }
+
+void printStats() {
+  Serial.print(F("[STATS] Posts OK: "));
+  Serial.print(successPostCount);
+  Serial.print(F("  Errors: "));
+  Serial.println(errorCount);
+}
+
+void printBanner() {
+  Serial.println(F(""));
+  Serial.println(F("╔══════════════════════════════════════╗"));
+  Serial.println(F("║  Arduino Uno R4 WiFi – DHT22 Logger ║"));
+  Serial.println(F("║  Target : 192.168.1.239:8080         ║"));
+  Serial.println(F("║  Sensor : DHT22  Interval : 2 s      ║"));
+  Serial.println(F("╚══════════════════════════════════════╝"));
+}
