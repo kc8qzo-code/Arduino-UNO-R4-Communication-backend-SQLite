@@ -22,7 +22,7 @@ public class SensorController {
         System.out.println("Humidity = " + reading.getHumidity());
         System.out.println("Light = " + reading.getLight());
         System.out.println("Pass Value = " + reading.getPassValue());
-        System.out.println("Sent At = " + reading.getSentAt());
+        System.out.println("SentAt = " + reading.getSentAt());
         System.out.println("TimeStamp = " + reading.getPostedAt());
         return "OK";
     }

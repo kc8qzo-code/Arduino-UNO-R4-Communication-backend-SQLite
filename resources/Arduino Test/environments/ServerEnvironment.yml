@@ -1,4 +1,0 @@
-name: ServerEnvironment
-variables:
-  - name: environmentUrl
-    value: http://192.168.1.239:8080
