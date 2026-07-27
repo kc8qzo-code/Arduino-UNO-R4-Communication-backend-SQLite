@@ -16,14 +16,14 @@ public class SensorController {
     private final SensorService sensorService;
 
     @PostMapping
-    public String receive(@RequestBody SensorReadingDTO reading) {
-        sensorService.receiveSensorData(reading);
-        System.out.println("Temp = " + reading.getTemperature());
-        System.out.println("Humidity = " + reading.getHumidity());
-        System.out.println("Light = " + reading.getLight());
-        System.out.println("Pass Value = " + reading.getPassValue());
-        System.out.println("SentAt = " + reading.getSentAt());
-        System.out.println("TimeStamp = " + reading.getPostedAt());
+    public String receive(@RequestBody SensorReadingDTO readingDTO) {
+        sensorService.receiveSensorData(readingDTO);
+        System.out.println("Temp = " + readingDTO.getTemperature());
+        System.out.println("Humidity = " + readingDTO.getHumidity());
+        System.out.println("Light = " + readingDTO.getLight());
+        System.out.println("Pass Value = " + readingDTO.getPassValue());
+        System.out.println("SentAt = " + readingDTO.getSentAt());
+        System.out.println("TimeStamp = " + readingDTO.getPostedAt());
         return "OK";
     }
 

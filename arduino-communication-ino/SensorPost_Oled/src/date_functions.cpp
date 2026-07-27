@@ -6,9 +6,18 @@ String buildReadableDate(const DateTime &dateTime) {
   };
 
   String readableDate = "";
-  readableDate += twoDigits(dateTime.month()) + "/" + twoDigits(dateTime.day()) + "/" + String(dateTime.year()) + " ";
-  readableDate += twoDigits(dateTime.hour()) + ":" + twoDigits(dateTime.minute()) + ":" + twoDigits(dateTime.second());
+  readableDate += twoDigits(dateTime.month()) + "/" + twoDigits(dateTime.day()) + "/" + String(dateTime.year());
   return readableDate;
+}
+
+String buildReadableTime(const DateTime &dateTime) {
+  auto twoDigits = [](uint8_t value) {
+    return (value < 10) ? String("0") + String(value) : String(value);
+  };
+
+  String readableTime = "";
+  readableTime += twoDigits(dateTime.hour()) + ":" + twoDigits(dateTime.minute()) + ":" + twoDigits(dateTime.second());
+  return readableTime;
 }
 
 String buildUTCDate(const DateTime &dateTime) {
