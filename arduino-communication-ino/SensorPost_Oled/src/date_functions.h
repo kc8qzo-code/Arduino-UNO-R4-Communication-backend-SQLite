@@ -5,6 +5,7 @@
 #include <RTClib.h>
 
 String buildReadableDate(const DateTime &dateTime);
+String buildReadableTime(const DateTime &dateTime);
 String buildUTCDate(const DateTime &dateTime);
 
 #endif

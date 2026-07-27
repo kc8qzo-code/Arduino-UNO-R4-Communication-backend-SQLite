@@ -46,11 +46,11 @@
   ── Required Libraries (Arduino Library Manager) ─────────────────────────────
   • DHT sensor library (DHT.h)
   • ArduinoHttpClient  by Arduino      (0.6.x)
-  • Adafruit_SSD1306 
+  • Adafruit_SSD1306
   • Adafruit_BusIO
   • Adafruit_RTCLib
   • Adafruit_GFX
-  • Arduino_BuiltIn 
+  • Arduino_BuiltIn
   • ArduinoGraphics
   • Arduino_LED_Matrix
   • Wire
@@ -97,7 +97,7 @@ const char DEVICE_ID[] = "arduino-r4-01";
 // ── Post interval ─────────────────────────────────────────────────────────────
 const unsigned long POST_INTERVAL_MS = 2000UL;
 const unsigned long MATRIX_INTERVAL = 250UL;
-const unsigned long MELODY_INTERVAL = 10000UL;  // Play melody every 10 seconds
+const unsigned long MELODY_INTERVAL = 10000UL; // Play melody every 10 seconds
 
 // ── DHT22 ─────────────────────────────────────────────────────────────────────
 #define DHT_PIN 4
@@ -126,23 +126,27 @@ bool notPlayedMelody = true;
 RTC_DS3231 rtc;
 
 // ═══════════════════════════════════════════════════════════════════════════════
-void setup() {
+void setup()
+{
   Serial.begin(115200);
-  while (!Serial && millis() < 3000);
+  while (!Serial && millis() < 3000)
+    ;
 
   printBanner();
 
   dht.begin();
-  delay(2000);  // DHT11 needs ~2 s after power-on before first reliable read
+  delay(2000); // DHT11 needs ~2 s after power-on before first reliable read
 
   // Keep an unavailable server from blocking an entire loop() pass.
   wifiClient.setConnectionTimeout(HTTP_CONNECT_TIMEOUT_MS);
 
   // Start I2C communication
   Wire.begin();
-  if (!rtc.begin()) {
+  if (!rtc.begin())
+  {
     Serial.println("Couldn't find RTC. Check wiring.");
-    while (1) delay(10);
+    while (1)
+      delay(10);
   }
 
   Serial.println("Reading DS3231 clock...");
@@ -151,25 +155,29 @@ void setup() {
 
   connectWiFi();
 
-  if (!initializeOled()) {
+  if (!initializeOled())
+  {
     Serial.println(F("SSD1306 allocation failed"));
     for (;;)
-      ;  // Don't proceed, loop forever
+      ; // Don't proceed, loop forever
   }
 
-  if (!initializeRgbLed()) {
+  if (!initializeRgbLed())
+  {
     Serial.println(F("RGB LED Pin Allocation Failed"));
     for (;;)
-      ;  // Don't proceed, loop forever
+      ; // Don't proceed, loop forever
   }
 
   delay(200);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-void loop() {
+void loop()
+{
   // Reconnect Wi-Fi if dropped
-  if (WiFi.status() != WL_CONNECTED) {
+  if (WiFi.status() != WL_CONNECTED)
+  {
     wifiClient.stop();
     pendingHttpBody = "";
     httpResponse = "";
@@ -183,7 +191,8 @@ void loop() {
 
   slowFadeRgbColors(currentMillis);
 
-  if (currentMillis - lastPostTime >= POST_INTERVAL_MS) {
+  if (currentMillis - lastPostTime >= POST_INTERVAL_MS)
+  {
     lastPostTime = currentMillis;
     buildSensorData();
     printStats();
@@ -191,12 +200,14 @@ void loop() {
 
   serviceHttpRequest();
 
-  if (currentMillis - lastVersionPostTime >= MATRIX_INTERVAL) {
+  if (currentMillis - lastVersionPostTime >= MATRIX_INTERVAL)
+  {
     lastVersionPostTime += MATRIX_INTERVAL;
     updateMatrix("V2.0");
   }
 
-  if (currentMillis - lastMelodyTime >= MELODY_INTERVAL && notPlayedMelody) {
+  if (currentMillis - lastMelodyTime >= MELODY_INTERVAL && notPlayedMelody)
+  {
     lastMelodyTime += MELODY_INTERVAL;
     notPlayedMelody = false;
     shaveAndAHaircut();
@@ -206,9 +217,11 @@ void loop() {
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Read DHT22 and POST JSON to REST endpoint
 // ═══════════════════════════════════════════════════════════════════════════════
-void buildSensorData() {
+void buildSensorData()
+{
 
-  if (httpRequestState != HTTP_IDLE) {
+  if (httpRequestState != HTTP_IDLE)
+  {
     Serial.println(F("[POST] Previous request still active; sample skipped"));
     return;
   }
@@ -224,14 +237,18 @@ void buildSensorData() {
   DateTime now = rtc.now();
 
   // Validate – DHT22 returns NaN on read failure
-  if (isnan(humidity) || isnan(temperature)) {
+  if (isnan(humidity) || isnan(temperature))
+  {
     Serial.println(F("[DHT] ✘ Read failed – sensor not ready or wiring issue"));
     errorCount++;
     return;
   }
 
-  String dateTime = buildReadableDate(now);
-  Serial.println(dateTime);
+  String date = buildReadableDate(now);
+  Serial.println(date);
+
+  String time = buildReadableTime(now);
+  Serial.println(time);
 
   String utcStyleTime = buildUTCDate(now);
   Serial.println("UTC Type");
@@ -252,12 +269,14 @@ void buildSensorData() {
   Serial.print(F("[POST] → "));
   Serial.println(pendingHttpBody);
 
-  updateOled(temperature, humidity, lightOhms, postCount, dateTime);
+  updateOled(temperature, humidity, lightOhms, postCount, date, time);
+  // scrollLeftOneScreen();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Helpers
 // ═══════════════════════════════════════════════════════════════════════════════
-float round2(float val) {
+float round2(float val)
+{
   return roundf(val * 100.0f) / 100.0f;
 }
