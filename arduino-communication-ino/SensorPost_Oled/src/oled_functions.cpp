@@ -11,6 +11,9 @@ namespace
   constexpr uint8_t SCREEN_ADDRESS = 0x3C;
   constexpr unsigned long SCROLL_DURATION_MS = 2000;
   constexpr int SCROLL_STEP_PIXELS = 2;
+  constexpr int FONT_HEIGHT = 8;
+  constexpr int LINE_SPACING = FONT_HEIGHT / 4;
+  constexpr int LINE_HEIGHT = FONT_HEIGHT + LINE_SPACING;
 
   Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 }
@@ -33,13 +36,20 @@ void updateOled(float temp, float humidity, int light, unsigned long passCount, 
 {
   display.clearDisplay();
 
-  display.setCursor(0, 5);
-  display.println("Temp: " + String(temp) + " F");
-  display.println("Humidity: " + String(humidity) + "%");
-  display.println("Light: " + String(light) + " Ohms");
-  display.println("Pass: " + String(passCount));
-  display.println("Date: " + date);
-  display.println("Time: " + time);
+  constexpr int FIRST_LINE_Y = 5;
+
+  display.setCursor(0, FIRST_LINE_Y);
+  display.print("Temp: " + String(temp) + " F");
+  display.setCursor(0, FIRST_LINE_Y + LINE_HEIGHT);
+  display.print("Humidity: " + String(humidity) + "%");
+  display.setCursor(0, FIRST_LINE_Y + (2 * LINE_HEIGHT));
+  display.print("Light: " + String(light) + " Ohms");
+  display.setCursor(0, FIRST_LINE_Y + (3 * LINE_HEIGHT));
+  display.print("Pass: " + String(passCount));
+  display.setCursor(0, FIRST_LINE_Y + (4 * LINE_HEIGHT));
+  display.print("Date: " + date);
+  display.setCursor(0, FIRST_LINE_Y + (5 * LINE_HEIGHT));
+  display.print("Time: " + time);
 
   display.display();
 }
